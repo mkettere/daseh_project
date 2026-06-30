@@ -149,6 +149,10 @@ grangertest(pct_ed_visits~max_temp_degF, order = 2, data = rhino_2025_adams)
 rhino_all_adams <- rhino |> filter(geography == "County") |> 
   mutate(location = tolower(str_remove(location, " County")))|>
   filter(location == "adams") |> filter(hazard == "heat")
+adams_all.long <-rhino_all_adams |>
+  select(Date, max_temp_degF, pct_ed_visits) |>
+  pivot_longer(-Date, names_to = "variable", values_to = "value")
+ggplot(adams_all.long, aes(Date, value, colour = variable)) + geom_point()
 
 grangertest(pct_ed_visits~max_temp_degF, order = 1, data = rhino_all_adams)
 #granger test is significant with all years of data
