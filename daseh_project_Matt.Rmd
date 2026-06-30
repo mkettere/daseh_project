@@ -1,31 +1,207 @@
----
-title: "daseh_project"
-author: "Matt Ketterer"
-date: "2026-06-29"
-output: html_document
----
+# Code-a-thon Project Template
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+###
+
+This project is intended to help you apply your skills in R in a way that would be conducive for collaborating or creating reproducible analyses.The project I'm working on is trying to correlate hospitalization rate spikes to heat waves, and PM2.5 spikes affect on smoke and asthma hospitalization rates.
+
+cvcv
+## Data Used
+
+Summer hazards excel file was downloaded on 6/28/2026 from the Washington State Dept. of Health Seasonal Hazards Dashboard. 
+
+Url: https://doh.wa.gov/public-health-provider-resources/healthcare-professions-and-facilities/data-exchange/syndromic-surveillance-rhino/seasonal-hazards-dashboard
+
+Data import into R:
+```{r}
+library(tidyverse)
+library(rio)
+library(ggplot2)
+library(maps)
+library(lmtest)
+
+rhino <- import("C:/Users/mkett/Desktop/DaSEH project/rhino_sh_summer_hazards_downloadable.csv")
+glimpse(rhino)
+#load washington county map
+wa_county <- map_data("county") |> filter(region == "washington")
+
 ```
 
-###Test for github
-## R Markdown
+The data contains hospitalization data visits by type of hazard (asthma, boating, drowning, heat, and smoke), between May 1st and October 31st for years 2022-present. 
+It has individual county data as well as statewide summaries. Key independent variables are max temp and PM2.5 particulate and how it affects hospitalizations for those hazards. 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Data Cleaning/Wrangling
+Based on a glimpse of the data, I changed Date variable from character to date type, also I removed the date-time Stamp variable as that column isn't needed, just shows the time downloaded. 
 
-```{r cars}
-summary(cars)
+# Joining Map data to get county maps for 2025 year
+
+
+```{r}
+# adjusting Date from character to date type and removing data time stamp column not needed.
+#rhino <- rhino |> select(-'Date-Time Stamp')
+rhino$Date <-mdy(rhino$Date)
+#check data again
+glimpse(rhino)
+
+#county only multiple years
+rhino_county <- rhino |> filter(geography == "County") |> 
+  mutate(location = tolower(str_remove(location, " County")))|>
+  inner_join(wa_county, by = join_by(location==subregion))
+#summary map
+
+#2025 county data
+rhino_2025_co <- rhino_county |> filter(year==2025)
+# county data is ready for subset to make maps for heat, smoke and asthma
+
+
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+# Data Visualization
+Create maps with max temp and smoke for 2025. 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Also creat maps were created for each hazard of interest(heat, smoke, and asthma) to find counties with the highest hospitalization percentages. Some counties don't have temperature or PM2.5 data so future work would be to gather that data. Otherwise we will use counties that contain that data. 
+
+```{r}
+#map 2025 highest PM2.5 and max temp
+rhino_2025_maxtemp <- rhino_2025_co |>
+  group_by(location) |> summarize(max_temp_degF = max(max_temp_degF)) |>
+  full_join(wa_county, by = join_by(location==subregion))
+
+rhino_2025_pm2.5 <- rhino_2025_co |>
+  group_by(location) |> summarize(max_pm2.5 = max(max_pm2.5)) |>
+  full_join(wa_county, by = join_by(location==subregion))
+
+#map 2025 sum of heat hospitalizations
+rhino_2025_sum_heat <- rhino_2025_co |>
+  filter(hazard == "heat") |>
+  group_by(location) |> summarize(max_pct_ed_visits = max(pct_ed_visits)) |>
+  full_join(wa_county, by = join_by(location==subregion)) 
+#2026 sum of smoke hospitalizations
+rhino_2025_sum_smoke <- rhino_2025_co |>
+  filter(hazard == "smoke") |>
+  group_by(location) |> summarize(max_pct_ed_visits = max(pct_ed_visits)) |>
+  full_join(wa_county, by = join_by(location==subregion))
+#2026 sum of asthma hospitalizations
+rhino_2025_sum_asthma <- rhino_2025_co |>
+  filter(hazard == "asthma") |>
+  group_by(location) |> summarize(max_pct_ed_visits = max(pct_ed_visits)) |>
+  full_join(wa_county, by = join_by(location==subregion))
+
+
+#plot this
+plot_2025_maxtemp <-  ggplot() + 
+  geom_polygon(data = rhino_2025_maxtemp, 
+               aes(x = long, y = lat, group = group, fill = max_temp_degF), color="red") +
+  #geom_point(data = wa_cities, aes(x = long, y = lat), color = "red") +
+  labs(
+    title = "Washington max temps 2025 (deg F)",
+    x = "longitude", y = "latitude") +
+  coord_fixed(1.3)
+plot_2025_maxtemp
+
+plot_2025_pm2.5 <-  ggplot() + 
+  geom_polygon(data = rhino_2025_pm2.5, 
+               aes(x = long, y = lat, group = group, fill = max_pm2.5), color="red") +
+  #geom_point(data = wa_cities, aes(x = long, y = lat), color = "red") +
+  labs(
+    title = "Washington max PM2.5 2025",
+    x = "longitude", y = "latitude") +
+  coord_fixed(1.3)
+plot_2025_pm2.5
+
+plot_2025_heat <-
+  ggplot() + 
+  geom_polygon(data = rhino_2025_sum_heat, 
+               aes(x = long, y = lat, group = group, fill = max_pct_ed_visits), color="red") +
+  #geom_point(data = wa_cities, aes(x = long, y = lat), color = "red") +
+  labs(
+    title = "Washington max heat related emergency visits, 2025",
+    x = "longitude", y = "latitude") +
+  coord_fixed(1.3)
+plot_2025_heat
+
+plot_2025_smoke <- 
+  ggplot() + 
+  geom_polygon(data = rhino_2025_sum_smoke, 
+               aes(x = long, y = lat, group = group, fill = max_pct_ed_visits), color="red") +
+  #geom_point(data = wa_cities, aes(x = long, y = lat), color = "red") +
+  labs(
+    title = "Washington max smoke related emergency visits, 2025",
+    x = "longitude", y = "latitude") +
+  coord_fixed(1.3)
+plot_2025_smoke
+
+plot_2025_asthma <- 
+  ggplot() + 
+  geom_polygon(data = rhino_2025_sum_asthma, 
+               aes(x = long, y = lat, group = group, fill = max_pct_ed_visits), color="red") +
+  #geom_point(data = wa_cities, aes(x = long, y = lat), color = "red") +
+  labs(
+    title = "Washington max asthma related emergency visits, 2025",
+    x = "longitude", y = "latitude") +
+  coord_fixed(1.3)
+plot_2025_asthma
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# Data Analysis
+
+Based on the maps above identifying higher values of hospitalizations, will use the time series for that county to do a plot and do a predictive test for temp on hospitalizations for adams county. 
+
+```{r}
+rhino_2025_adams <- rhino |> filter(geography == "County") |> 
+  mutate(location = tolower(str_remove(location, " County")))|>
+  filter(location == "adams") |> filter(year == 2025) |> filter(hazard == "heat")
+plot_ts_2025_adams <-
+  ggplot(data = rhino_2025_adams, 
+         aes(x=Date, y=max_temp_degF)) +  geom_line() + scale_x_date(date_breaks = "1 month") +
+        labs(
+          title = "Daily temperature in Adams county summer 2025", 
+          y = "Temperature (degrees F)"
+        )
+plot_ts_2025_adams
+
+#try plotting hospital rates and temp on same graph
+adams_2025.long <-rhino_2025_adams |>
+    select(Date, max_temp_degF, pct_ed_visits) |>
+    pivot_longer(-Date, names_to = "variable", values_to = "value")
+ggplot(adams_2025.long, aes(Date, value, colour = variable)) + geom_line()
+
+#granger causality test
+grangertest(pct_ed_visits~max_temp_degF, order = 2, data = rhino_2025_adams)
+# p-value is 0.18 with 2 lags, try adding more data multiple years
+
+rhino_all_adams <- rhino |> filter(geography == "County") |> 
+  mutate(location = tolower(str_remove(location, " County")))|>
+  filter(location == "adams") |> filter(hazard == "heat")
+adams_all.long <-rhino_all_adams |>
+  select(Date, max_temp_degF, pct_ed_visits) |>
+  pivot_longer(-Date, names_to = "variable", values_to = "value")
+ggplot(adams_all.long, aes(Date, value, colour = variable)) + geom_line()
+grangertest(pct_ed_visits~max_temp_degF, order = 1, data = rhino_all_adams)
+#granger test is significant with all years of data
+grangertest(max_temp_degF~pct_ed_visits, order = 1, data = rhino_all_adams)
+#not surprising that high visits don't statistically predict temp. 
+
+```
+
+
+# Please include additional sections as desired.
+
+```{r}
+
+```
+
+
+# Versions
+
+Include some information about the version of R and the packages you are using by running sessionInfo().
+
+```{r}
+sessionInfo()
+```
+
+Render your document to an html or pdf using the "Knit" button.
