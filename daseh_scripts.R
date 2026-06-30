@@ -112,3 +112,14 @@ plot_2025_asthma <-
 rhino_2025_sum_heat |> group_by(location) |> arrange(desc(max_pct_ed_visits)) |>
   print(n=200)
 
+##plot time series temp for Ferry county 2025
+#ferry county data 2025 only
+rhino_2025_ferry <- rhino |> filter(geography == "County") |> 
+  mutate(location = tolower(str_remove(location, " County")))|>
+  filter(location == "ferry") |> filter(year == 2025) |>
+  distinct(Date,.keep_all = TRUE)
+plot_ts_2025_ferry <-
+    ggplot(data = rhino_2025_ferry, 
+           aes(x=Date, y=max_temp_degF)) +
+    geom_point()
+plot_ts_2025_ferry
