@@ -3,6 +3,7 @@ library(tidyverse)
 library(rio)
 library(ggplot2)
 library(maps)
+library(lmtest)
 
 #load washington county map
 wa_county <- map_data("county") |> filter(region == "washington")
@@ -61,11 +62,14 @@ rhino_county <- rhino |> filter(geography == "County") |>
 #2025 county data
 rhino_2025_co <- rhino_county |> filter(year==2025)
 
+#map 2025 highest PM2.5 and max temp
+
+
 #map 2025 sum of heat hospitalizations
 rhino_2025_sum_heat <- rhino_2025_co |>
   filter(hazard == "heat") |>
   group_by(location) |> summarize(max_pct_ed_visits = max(pct_ed_visits)) |>
-  full_join(wa_county, by = join_by(location==subregion))
+  left_join(wa_county, by = join_by(location==subregion)) 
 #2026 sum of smoke hospitalizations
 rhino_2025_sum_smoke <- rhino_2025_co |>
   filter(hazard == "smoke") |>
@@ -88,6 +92,7 @@ plot_2025_heat <-
     title = "Washington max heat related emergency visits, 2025",
     x = "longitude", y = "latitude") +
   coord_fixed(1.3)
+plot_2025_heat
 
 plot_2025_smoke <- 
   ggplot() + 
@@ -98,6 +103,7 @@ plot_2025_smoke <-
     title = "Washington max smoke related emergency visits, 2025",
     x = "longitude", y = "latitude") +
   coord_fixed(1.3)
+plot_2025_smoke
 
 plot_2025_asthma <- 
   ggplot() + 
@@ -108,11 +114,13 @@ plot_2025_asthma <-
     title = "Washington max asthma related emergency visits, 2025",
     x = "longitude", y = "latitude") +
   coord_fixed(1.3)
+plot_2025_asthma
 
-#rank counties by heat, smoke, and asthma max visits. Top counties are columbia
-#ferry
+#rank counties by heat, smoke, and asthma max visits. 
+#Use distinct to just return counties
 rhino_2025_sum_heat |> group_by(location) |> arrange(desc(max_pct_ed_visits)) |>
-  print(n=200)
+  distinct(location)
+  
 
 ##plot time series temp for Ferry county 2025
 #ferry county data 2025 only
@@ -127,3 +135,27 @@ plot_ts_2025_adams <-
           y = "Temperature (degrees F)"
         )
 plot_ts_2025_adams
+
+#try plotting hospital rates and temp on same graph
+adams_2025.long <-rhino_2025_adams |>
+    select(Date, max_temp_degF, pct_ed_visits) |>
+    pivot_longer(-Date, names_to = "variable", values_to = "value")
+ggplot(adams_2025.long, aes(Date, value, colour = variable)) + geom_line()
+
+#granger causality test
+grangertest(pct_ed_visits~max_temp_degF, order = 2, data = rhino_2025_adams)
+# p-value is 0.18 with 2 lags, try adding more data multiple years
+
+rhino_all_adams <- rhino |> filter(geography == "County") |> 
+  mutate(location = tolower(str_remove(location, " County")))|>
+  filter(location == "adams") |> filter(hazard == "heat")
+
+grangertest(pct_ed_visits~max_temp_degF, order = 1, data = rhino_all_adams)
+#granger test is significant with all years of data
+grangertest(max_temp_degF~pct_ed_visits, order = 1, data = rhino_all_adams)
+#not surprising that high visits don't statistically predict temp. 
+
+###Air quality same thing
+
+
+
