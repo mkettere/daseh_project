@@ -160,6 +160,15 @@ grangertest(max_temp_degF~pct_ed_visits, order = 1, data = rhino_all_adams)
 #not surprising that high visits don't statistically predict temp. 
 
 ###Air quality same thing
-
+### first try using lags with lm
+##create lags using dplyr
+rhino_lagged <- rhino_2025_adams |>
+  mutate(
+    t_lag1 = lag(max_temp_degF, n=1),
+    t_lag2 = lag(max_temp_degF, n=2),
+    pm_lag1 = lag(max_pm2.5, n=1),
+    pm_lag2 = lag(max_pm2.5, n=2),
+    season = case_when(between(Date, as.Date("2025-05-01"), as.Date("2025-07-31"))~ "early", .default = "late" ))
+  
 
 
