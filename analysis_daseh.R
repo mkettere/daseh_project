@@ -3,7 +3,7 @@ library(tidyverse)
 library(rio)
 library(ggplot2)
 library(maps)
-library(lubridate)
+
 #load washington county map
 wa_county <- map_data("county") |> filter(region == "washington")
 plot_1 <- 
@@ -50,7 +50,8 @@ wa_county <- map_data("county") |> filter(region == "washington")
 
 rhino <- import("C:/Users/mkett/Desktop/DaSEH project/rhino_sh_summer_hazards_downloadable.csv")
 glimpse(rhino)
-rhino$Date <-as.Date(rhino$Date)
+rhino <- rhino |> select(-'Date-Time Stamp')
+rhino$Date <-mdy(rhino$Date)
 #county only multiple years
 rhino_county <- rhino |> filter(geography == "County") |> 
   mutate(location = tolower(str_remove(location, " County")))|>
@@ -117,10 +118,12 @@ rhino_2025_sum_heat |> group_by(location) |> arrange(desc(max_pct_ed_visits)) |>
 #ferry county data 2025 only
 rhino_2025_adams <- rhino |> filter(geography == "County") |> 
   mutate(location = tolower(str_remove(location, " County")))|>
-  filter(location == "adams") |> filter(year == 2025) |>
-  distinct(Date,.keep_all = TRUE)
+  filter(location == "adams") |> filter(year == 2025) |> filter(hazard == "heat")
 plot_ts_2025_adams <-
   ggplot(data = rhino_2025_adams, 
-         aes(x=Date, y=max_temp_degF)) +
-  geom_line() + scale_x_date(date_labels = "%d %m", date_breaks = "1 month")
+         aes(x=Date, y=max_temp_degF)) +  geom_line() + scale_x_date(date_breaks = "1 month") +
+        labs(
+          title = "Daily temperature in Adams county summer 2025", 
+          y = "Temperature (degrees F)"
+        )
 plot_ts_2025_adams
